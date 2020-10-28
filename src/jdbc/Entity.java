@@ -22,7 +22,8 @@ public class Entity<T extends Entity<?>> {
 			createTable();
 		}
 		DbConnector db = DbConnector.getInstance();
-		if(identity < 0) {
+		System.out.println();
+		if(identity == -1) {
 			identity = db.executeInsert(getInsertString());
 		} else{
 			db.execute(getUpdateString());
@@ -133,15 +134,29 @@ public class Entity<T extends Entity<?>> {
 		}
 		DbConnector db = DbConnector.getInstance();
 		List<Field> simpleFields = getValidSimpleColumnTypes();
-		String createString = "CREATE TABLE " + getTableName() + " (identity INT PRIMARY KEY AUTO_INCREMENT";
+		String createString = "CREATE TABLE IF NOT EXISTS " + getTableName() + " (identity INT PRIMARY KEY AUTO_INCREMENT";
 		for (Field field : simpleFields) {
 			createString += ", `" + field.getName() + "` " + JDBCUtils.FieldToMysqlType(field);
 		}
+		
 		createString += ");";
-		identity = db.executeInsert(createString);
-		return identity > -1;
+		return db.execute(createString);
 	}
 
+	/**
+	 *
+	 * @return List of fields
+	 */
+	List<Field> getValidForeignKeyFields(Class<?> clazz){
+		List<Field> out = new ArrayList<Field>();
+		for (Field field : JDBCUtils.fieldsDeclaredDirectlyIn(clazz)) {
+			if(JDBCUtils.isPrimitiveFieldSupported(field) && field.getName() != "identity") {
+				out.add(field);
+			}
+		}
+		return out;
+	}
+	
 	/**
 	 * Returns all own (primitive) fields wich are not of a special type and supported
 	 * @return List of fields
@@ -149,7 +164,7 @@ public class Entity<T extends Entity<?>> {
 	List<Field> getValidSimpleColumnTypes(Class<?> clazz){
 		List<Field> out = new ArrayList<Field>();
 		for (Field field : JDBCUtils.fieldsDeclaredDirectlyIn(clazz)) {
-			if(JDBCUtils.isFieldSupported(field) && field.getName() != "identity") {
+			if(JDBCUtils.isPrimitiveFieldSupported(field) && field.getName() != "identity") {
 				out.add(field);
 			}
 		}
@@ -157,6 +172,10 @@ public class Entity<T extends Entity<?>> {
 	}
 	
 	List<Field> getValidSimpleColumnTypes(){
+		return getValidSimpleColumnTypes(this.getClass());
+	}
+	
+	List<Field> getValidForeignKeyFields(){
 		return getValidSimpleColumnTypes(this.getClass());
 	}
 	

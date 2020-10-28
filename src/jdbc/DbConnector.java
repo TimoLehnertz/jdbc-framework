@@ -25,6 +25,7 @@ import java.util.Properties;
 
 public class DbConnector {
 	
+	static final String TIME_ZONE = "?useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=UTC";
 	static final String JSBC_URL = "jdbc:mysql://";
 	String dbUrl = "localhost";
 	String dbUser = "root";
@@ -49,7 +50,7 @@ public class DbConnector {
 	    connectionProps.put("user", dbUser);
 	    connectionProps.put("password", dbPassowrd);
 		try {
-			conn =  DriverManager.getConnection("jdbc:mysql://" + dbUrl + ":" + dbPort + "/", connectionProps);
+			conn =  DriverManager.getConnection("jdbc:mysql://" + dbUrl + ":" + dbPort + "/" + TIME_ZONE, connectionProps);
 			System.out.println("connected to database");
 			boolean dbExists = false;
 			try {
