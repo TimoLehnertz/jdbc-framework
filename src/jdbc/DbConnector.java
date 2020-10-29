@@ -25,6 +25,7 @@ import java.util.Properties;
 
 public class DbConnector {
 	
+	static final String DB_ARGS = "?useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=UTC";
 	static final String JSBC_URL = "jdbc:mysql://";
 	String dbUrl = "localhost";
 	String dbUser = "root";
@@ -49,8 +50,7 @@ public class DbConnector {
 	    connectionProps.put("user", dbUser);
 	    connectionProps.put("password", dbPassowrd);
 		try {
-			conn =  DriverManager.getConnection("jdbc:mysql://" + dbUrl + ":" + dbPort + "/", connectionProps);
-			System.out.println("connected to database");
+			conn =  DriverManager.getConnection("jdbc:mysql://" + dbUrl + ":" + dbPort + DB_ARGS, connectionProps);
 			boolean dbExists = false;
 			try {
 				ResultSet resultSet = conn.getMetaData().getCatalogs();
@@ -105,6 +105,7 @@ public class DbConnector {
 			try {
 				stmt = conn.createStatement();
 				int id = stmt.executeUpdate(sql, Statement.RETURN_GENERATED_KEYS);
+				System.out.println("generated ID: " + id);
 				stmt.close();
 				return id;
 			} catch (SQLException e) {
@@ -164,18 +165,15 @@ public class DbConnector {
 		if(openConnection()) {
 			try {
 				DatabaseMetaData dbm = conn.getMetaData();
-				ResultSet rs = dbm.getTables(null, null,  tableName.toLowerCase(), null);
-				boolean success = false;
+				ResultSet rs = dbm.getTables(getDbName(), null,  tableName.toLowerCase(), null);
 			    if (rs.next()) {
-//			    	for (int i = 1; i < rs.getMetaData().getColumnCount() + 1; i++) {
-//			    		System.out.println(rs.getMetaData().getColumnName(i) + ": " + rs.getString(i));
-//					}
-			    	if(rs.getString("TABLE_CAT").contentEquals(dbName.toLowerCase())) {
-			    		success = true;
-			    	}
+		    		rs.close();
+//		    		System.out.println("table: " + tableName + " exists");
+		    		return true;
 			    }
 			    rs.close();
-			    return success;
+//			    System.out.println("table: " + tableName + " doesnt exists");
+			    return false;
 			} catch (SQLException e) {
 				e.printStackTrace();
 			}finally {
