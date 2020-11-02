@@ -1,57 +1,45 @@
 package jdbc;
 
-import java.lang.reflect.Field;
 import java.util.List;
 
+/**
+ * Class for easy access to AutoDb features
+ * Meant to be extended by any class to gain AutoDb features
+ * 
+ * @author Timo Lehnertz
+ *
+ */
 
-public class Entity<T extends Entity<?>> {
-	
-	public Entity() {
-		super();
-	}
-	
-	public int save() {
-		return JDBCUtils.saveObject(this);
-	}
-	
-	public List<T> getAll() {
-		return (List<T>) JDBCUtils.getAllFromType(getClass(), null);
-	}
-
+public class Entity {
 	
 	/**
-	 * @param n
-	 * @return n tabs as String
-	 */
-	String getnTabs(int n) {
-		String out = "";
-		for (int i = 0; i < n; i++) {
-			out += "\t";
-		}
-		return out;
-	}
-	
-	/**
-	 * @param tabs initial tabs used for recursive calls
+	 * Saves/updates this instance and all its content to the database
 	 * @return
 	 */
-	public String toStringJson(int tabs) {
-		tabs++;
-		String out = "\"" + this.getClass().getSimpleName() + "\": {\n " + getnTabs(tabs) + " \"ID\":\"" + Manager.getInstance().getIdFromObject(this) + "\"";
-		Field[] fields = this.getClass().getDeclaredFields();
-		for (Field field : fields) {
-			try {
-				field.setAccessible(true);
-				out +="\n" + getnTabs(tabs) +  " \"" + field.getName() + "\": " + (JDBCUtils.isFieldSubClass(field) && field.get(this) != null ? ((Entity<?>) field.get(this)).toStringJson(tabs) : "\"" + field.get(this) + "\"") + ",";
-			} catch (IllegalArgumentException | IllegalAccessException e) {
-				e.printStackTrace();
-			}
-		}
-		return out + "\n" + getnTabs(tabs - 1) + "}";
+	public long save() {
+		return AutoDb.save(this);
 	}
 	
-//	@Override
-//	public String toString() {
-//		return toStringJson(0);
-//	}
+	/**
+	 * Deletes this object and its contents from the database
+	 * @return true if succsessful
+	 */
+	public boolean delete() {
+		return AutoDb.delete(this);
+	}
+	
+	/**
+	 * @return List of all Entity instances ever beeing saved to the database
+	 */
+	public List<Entity> getAll() {
+		return (List<Entity>) AutoDb.getAllFromType(this.getClass(), null);
+	}
+	
+	/**
+	 * Overriden to String functionality to easier see relations between objects and its content
+	 */
+	@Override
+	public String toString() {
+		return AutoDbUtils.stringifyObject(this);
+	}
 }

@@ -1,9 +1,14 @@
 package jdbc;
 
-import java.util.Arrays;
 import java.util.List;
 
-public class Student extends Entity<Student>{
+/**
+ * 
+ * @author Timo Lehnertz
+ *
+ */
+
+public class Student extends Entity{
 
 	String name;
 	int age;
@@ -13,10 +18,10 @@ public class Student extends Entity<Student>{
 		
 	}
 	
-	public Student(String name, int age) {
+	public Student(String name, int age, List<Book> books) {
 		super();
 		this.name = name;
 		this.age = age;
-		books = Arrays.asList(new Book("Herr der Ringe"), new Book("Harry Potter"));
+		this.books = books;
 	}
 }

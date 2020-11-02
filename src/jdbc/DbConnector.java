@@ -3,6 +3,7 @@ package jdbc;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -13,14 +14,10 @@ import java.util.Map;
 import java.util.Properties;
 
 /**
- * @author timo
- * Usage esample:
+ * Class for interactions with the database
  * 
- *  	DbConnector db = DbConnector.getInstance();
-		db.setDbName("test5");
-		db.execute("CREATE TABLE IF NOT EXISTS test1(id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, name varchar(100));");
-		System.out.println("auto id: " + db.executeInsert("INSERT INTO test1(name) VALUES('1'), ('2')"));
-		System.out.println(db.executeQuery("SELECT * FROM test1"));
+ * @author Timo Lehnertz
+ *
  */
 
 public class DbConnector {
@@ -35,17 +32,30 @@ public class DbConnector {
 	
 	private Connection conn = null;
 	
+	private boolean debug = false;
+	
 	private static DbConnector instance = new DbConnector();
 	
 	private DbConnector() {
 		super();
 	}
 	
-	public static DbConnector getInstance() {
+	protected static DbConnector getInstance() {
 		return instance;
 	}
 	
-	boolean openConnection() {
+	public boolean isOperatable() {
+		Connection conn = getConnection();
+		boolean operatable = conn != null;
+		try {
+			conn.close();
+		} catch (Exception e) {
+			operatable = false;
+		}
+		return operatable;
+	}
+	
+	private boolean openConnection() {
 	    Properties connectionProps = new Properties();
 	    connectionProps.put("user", dbUser);
 	    connectionProps.put("password", dbPassowrd);
@@ -63,13 +73,15 @@ public class DbConnector {
 				}
 				resultSet.close();
 			} catch (SQLException e) {
-				e.printStackTrace();
+				System.err.println(e.getMessage());
 				return false;
 			}
 			Statement stmt = conn.createStatement();
 			if(!dbExists) {
 				try {
-					System.out.println("Creating DATABASE: \"" + dbName + "\"");
+					if(debug) {
+						System.out.println("Creating DATABASE: \"" + dbName + "\"");
+					}
 					stmt.execute("CREATE DATABASE " + dbName + ";");
 				} catch (SQLException e) {
 					e.printStackTrace();
@@ -80,50 +92,70 @@ public class DbConnector {
 			stmt.close();
 			return true;
 		} catch (SQLException e) {
-			e.printStackTrace();
-			System.out.println("could not connected to database!");
+			System.err.println(e.getMessage());
 			return false;
 		}
-	}
+	} 
 	
-	boolean closeConnection() {
-		if(conn != null) {
-			try {
-				conn.close();
-				return true;
-			} catch (SQLException e) {
-				return false;
-			}
-		}
-		return true;
-	}
-	
-	public int executeInsert(String sql) {
-		System.out.println("executeInsert: " + sql);
+	private Connection getConnection() {
 		if(openConnection()) {
-			Statement stmt = null;
-			try {
-				stmt = conn.createStatement();
-				int id = stmt.executeUpdate(sql, Statement.RETURN_GENERATED_KEYS);
-				System.out.println("generated ID: " + id);
-				stmt.close();
+			return conn;
+		} else {
+			return null;
+		}
+	}
+	
+	protected long executeInsert(String sql, String argTypes, Object... objects) {
+		return executeInsert(new SqlParams(argTypes, sql, objects));
+	}
+	
+	protected long executeInsert(SqlParams params) {
+		if(debug) {
+			System.out.println("executingInsert: " + params.sql);
+		}
+		if(!isOperatable()) {
+			return -1;
+		}
+		try(Connection conn = getConnection()) {
+			try (PreparedStatement stmt = conn.prepareStatement(params.sql, Statement.RETURN_GENERATED_KEYS)){
+				params.bindParams(stmt);
+				stmt.execute();
+				ResultSet rs = stmt.getGeneratedKeys();
+				long id = -1;
+				if(rs.next()) {
+					id = rs.getLong(1);
+				}
+				rs.close();
 				return id;
 			} catch (SQLException e) {
 				e.printStackTrace();
-			} finally {
-				closeConnection();
+			}
+		} catch(Exception e) {
+			e.printStackTrace();
+		} finally {
+			if(debug) {
+				System.out.println("Done");
 			}
 		}
 		return -1;
 	}
 	
-	public List<Map<String, Object>> executeQuery(String sql){
-		System.out.println("executeQuery: " + sql);
+	protected List<Map<String, Object>> executeQuery(String sql, String argTypes, Object... objects) {
+		return executeQuery(new SqlParams(argTypes, sql, objects));
+	}
+	
+	protected List<Map<String, Object>> executeQuery(SqlParams params){
+		if(!isOperatable()) {
+			return new ArrayList<Map<String, Object>>();
+		}
+		if(debug) {
+			System.out.println("executeQuery: " + params.sql);
+		}
 		List<Map<String, Object>> rsList = new ArrayList<Map<String, Object>>();
-		if(openConnection()) {
-			try {
-				Statement stmt = conn.createStatement();
-				ResultSet rs = stmt.executeQuery(sql);
+		try(Connection conn = getConnection()) {
+			try(PreparedStatement stmt = conn.prepareStatement(params.sql)){
+				params.bindParams(stmt);
+				ResultSet rs = stmt.executeQuery();
 				while (rs.next()) {
 					Map<String, Object> rsMap = new HashMap<String, Object>();
 					for (int i = 1; i < rs.getMetaData().getColumnCount() + 1; i++) {
@@ -132,54 +164,65 @@ public class DbConnector {
 					rsList.add(rsMap);
 				}
 				rs.close();
-				stmt.close();
-			} catch (SQLException e) {
+			}catch(SQLException e) {
 				e.printStackTrace();
-			}finally {
-				closeConnection();
 			}
-		} else {
-			System.out.println("No Open Connection!");
+		}catch(SQLException e) {
+			e.printStackTrace();
+		} finally {
+			if(debug) {
+				System.out.println("Done");
+			}
 		}
 		return rsList;
 	}
 	
-	public boolean execute(String sql) {
-		System.out.println("execute: " + sql);
-		if(openConnection()) {
-			try {
-				Statement stmt = conn.createStatement();
-				stmt.execute(sql);
+	protected boolean execute(String sql) {
+		return execute(sql, null);
+	}
+	
+	protected boolean execute(String sql, String argTypes, Object... objects) {
+		return execute(new SqlParams(argTypes, sql, objects));
+	}
+	
+	protected boolean execute(SqlParams params) {
+		if(params == null || !isOperatable()) {
+			return false;
+		}
+		if(debug) {
+			System.out.println("execute: " + params.sql);
+		}
+		try(Connection conn = getConnection()) {
+			try(PreparedStatement stmt = conn.prepareStatement(params.sql)) {
+				params.bindParams(stmt);
+				stmt.execute();
 			} catch (SQLException e) {
 				e.printStackTrace();
-			} finally {
-				closeConnection();
 			}
 			return true;
+		} catch (SQLException e1) {
+			e1.printStackTrace();
+		} finally {
+			if(debug) {
+				System.out.println("Done!");
+			}
 		}
 		return false;
 	}
 
 
-	public boolean doesTableExist(String tableName) {
-		if(openConnection()) {
-			try {
-				DatabaseMetaData dbm = conn.getMetaData();
-				ResultSet rs = dbm.getTables(getDbName(), null,  tableName.toLowerCase(), null);
-			    if (rs.next()) {
-		    		rs.close();
-//		    		System.out.println("table: " + tableName + " exists");
-		    		return true;
-			    }
-			    rs.close();
-//			    System.out.println("table: " + tableName + " doesnt exists");
-			    return false;
-			} catch (SQLException e) {
-				e.printStackTrace();
-			}finally {
-				closeConnection();
-			}
-			
+	protected boolean doesTableExist(String tableName) {
+		try (Connection conn = getConnection()){
+			DatabaseMetaData dbm = conn.getMetaData();
+			ResultSet rs = dbm.getTables(getDbName(), null,  tableName.toLowerCase(), null);
+		    if (rs.next()) {
+	    		rs.close();
+	    		return true;
+		    }
+		    rs.close();
+		    return false;
+		} catch (SQLException e) {
+			e.printStackTrace();
 		}
 		return false;
 	}
@@ -188,39 +231,43 @@ public class DbConnector {
 	 * Getters /  Setters
 	 */
 	
-	public String getDbUser() {
+	protected String getDbUser() {
 		return dbUser;
 	}
 
-	public void setDbUser(String dbUser) {
+	protected void setDbUser(String dbUser) {
 		this.dbUser = dbUser;
 	}
 
-	public String getDbPassowrd() {
+	protected String getDbPassowrd() {
 		return dbPassowrd;
 	}
 
-	public void setDbPassowrd(String dbPassowrd) {
+	protected void setDbPassowrd(String dbPassowrd) {
 		this.dbPassowrd = dbPassowrd;
 	}
 
-	public String getDbName() {
+	protected String getDbName() {
 		return dbName;
 	}
 
-	public void setDbName(String dbName) {
+	protected void setDbName(String dbName) {
 		this.dbName = dbName;
 	}
 
-	public int getDbPort() {
+	protected int getDbPort() {
 		return dbPort;
 	}
 
-	public void setDbPort(int dbPort) {
+	protected void setDbPort(int dbPort) {
 		this.dbPort = dbPort;
 	}
 
-	public void setDbUrl(String dbUrl) {
+	protected void setDbUrl(String dbUrl) {
 		this.dbUrl = dbUrl;
+	}
+
+	protected void setDebugMode(boolean degug) {
+		this.debug = degug;
 	}
 }

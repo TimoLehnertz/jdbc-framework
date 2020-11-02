@@ -1,17 +1,37 @@
 package main;
 
-import jdbc.DbConnector;
+import java.util.Arrays;
+
+import jdbc.AutoDb;
+import jdbc.Book;
 import jdbc.Student;
 
 public class Main {
 
 	public static void main(String[] args) {
-		DbConnector.getInstance().setDbName("progress7");
-		DbConnector.getInstance().execute("DROP DATABASE IF EXISTS " + DbConnector.getInstance().getDbName() + ";");
-		new Student("max1", 11).save();
-		new Student("max2", 12).save();
-		new Student("max3", 13).save();
-		System.out.println(new Student("max1", 10).getAll());
-		System.out.println(new Student("max1", 10).getAll());
+		AutoDb.setup("localhost", "root", "", "AutoDb");
+//		AutoDb.setDebug(true);
+		AutoDb.dropDatabase(); //for resetting
+		
+		Student s1 = new Student("Max", 11, Arrays.asList(new Book("Herr der Ringe")));
+		Student s2 = new Student("Garfield", 12, Arrays.asList(new Book("Harry Potter")));
+		
+		s1.save();
+		s2.save();
+//		Alternativ
+//		AutoDb.save(s1);
+		
+		System.out.println(AutoDb.getAll(Student.class));
+
+		s1.delete();
+		s2.delete();
+//		Alternativ
+//		AutoDb.delete(s1);
+		
+		System.out.println();
+		
+		System.out.println(AutoDb.getAll(Student.class));
+//		alternativ
+//		System.out.println(s1.getAll());
 	}
 }
