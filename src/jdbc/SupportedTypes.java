@@ -18,7 +18,7 @@ public class SupportedTypes {
 
 	private static final List<Class<?>> supportedTypes = Arrays.asList(Boolean.TYPE, Boolean.class, Byte.TYPE, Byte.class, Short.TYPE, Short.class, Integer.TYPE,
 			Integer.class, Long.TYPE, Long.class, Float.TYPE, Float.class, Double.class, Double.TYPE, Double.class, Double.TYPE,
-			Double.class, java.math.BigDecimal.class, java.math.BigInteger.class, java.util.Date.class, java.sql.Date.class, java.sql.Time.class,
+			Double.class, java.math.BigDecimal.class, java.math.BigInteger.class, java.sql.Date.class, java.sql.Time.class, java.sql.Timestamp.class,
 			java.sql.Timestamp.class, String.class, Character.TYPE, Character.class);
 	
 	protected static final char BYTE = 'y';
@@ -73,9 +73,6 @@ public class SupportedTypes {
 		/**
 		 * Date
 		 */
-		if(c == java.util.Date.class) {
-			out = "DATETIME";
-		}
 		if(c == java.sql.Date.class) {
 			out = "DATE";
 		}
@@ -190,9 +187,6 @@ public class SupportedTypes {
 		/**
 		 * Date
 		 */
-		if(c == java.util.Date.class) {
-			return "'" + new SimpleDateFormat("yyyy-MM-dd").format((java.util.Date) f.get(ctx)) + "'";
-		}
 		if(c == java.sql.Date.class) {
 			return "'" + new SimpleDateFormat("yyyy-MM-dd").format((java.sql.Date) f.get(ctx)) + "'";
 		}

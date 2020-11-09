@@ -253,8 +253,10 @@ public class AutoDbUtils {
 			saveObject(o);
 		}
 		for (Field field : getSupportedSpecialFieldsFromType(o.getClass())) {
+			field.setAccessible(true);
 			if(isSupportedListField(field)) {
 				Field listField = field;
+				listField.setAccessible(true);
 				Class<?> listType = getGenericClassFromListField(listField);
 				List<?> listContent;
 				
@@ -375,6 +377,7 @@ public class AutoDbUtils {
 		firstField = true;
 		for (Field field : getValidSimpleColumnTypesForClass(o.getClass())) {
 			try {
+				field.setAccessible(true);
 				params.add(field.get(o));
 				params.sql += (firstField ? "" : ", ") + "?";
 				firstField = false;
@@ -403,7 +406,11 @@ public class AutoDbUtils {
 			createString += ", `" + field.getName() + FOREIGN_KEY_IDENTIFIED + "` INT, FOREIGN KEY(`" + field.getName() + FOREIGN_KEY_IDENTIFIED + "`) REFERENCES `" + getTableNameForType(field.getType()) + "`(identity) ON DELETE CASCADE ON UPDATE CASCADE";
 		}
 		createString += ");";
-		return db.execute(createString) && createTablesForTypesFields(type);
+		boolean succsess = true;
+		succsess &= db.execute(createString);
+		succsess &= createTablesForTypesListFields(type);
+		succsess &= createTablesForTypesFields(type);
+		return succsess;
 	}
 	
 	private static List<Field> getSubclassFieldsForType(Class<?> type){
@@ -423,6 +430,15 @@ public class AutoDbUtils {
 	 */
 	private static boolean createTablesForTypesFields(Class<?> type) {
 		boolean succsess = true;
+//		subclasses
+		for (Field field : getSubclassFieldsForType(type)) {
+			succsess &= createTableForType(field.getType());
+		}
+		return succsess;
+	}
+	
+	private static boolean createTablesForTypesListFields(Class<?> type) {
+		boolean succsess = true;
 //		List Fields
 		for (Field field : getSupportedSpecialFieldsFromType(type)) {
 			Class<?> listType = getGenericClassFromListField(field);
@@ -437,9 +453,8 @@ public class AutoDbUtils {
 				
 //			Should be a saveable Object
 			} else {
-				if(!createTableForType(listType) || !createLinkTable(type, listType)) {
-					succsess = false;
-				}
+				succsess &= createTableForType(listType);
+				succsess &= createLinkTable(type, listType);
 			}
 		}
 		return succsess;
@@ -519,7 +534,6 @@ public class AutoDbUtils {
 		}
 		updateParams.sql += " WHERE identity = ?;";
 		updateParams.add(manager.getIdFromObject(o));
-		System.out.println(updateParams.sql);
 		if(impact) {
 			return updateParams;
 		} else {
@@ -564,7 +578,7 @@ public class AutoDbUtils {
 	 * @return Class type of generic content
 	 */
 	private static Class<?> getGenericClassFromListField(Field listField){
-		if(listField.getType() != List.class) {
+		if(listField.getType() != List.class && listField.getType() != ArrayList.class) {
 			return null;
 		}
 		Type genericType = listField.getGenericType();
@@ -605,6 +619,8 @@ public class AutoDbUtils {
 		for (Field field : fieldsDeclaredDirectlyIn(clazz)) {
 			if(SupportedTypes.isTypeSupported(field.getType()) && field.getName() != "identity") {
 				out.add(field);
+			} else if(!isSupportedListField(field) && !isTypeSubClass(field.getType())) {
+				System.err.println("Type " + field + " In Class " + clazz + " is not supported :(");
 			}
 		}
 		return out;
@@ -686,8 +702,7 @@ public class AutoDbUtils {
 			} else {
 				return o.toString();
 			}
-		}
-		if(o instanceof List) {
+		} else if(o instanceof List) {
 			List<?> list = (List<?>) o;
 			String out = "[";
 			boolean first = true;
@@ -696,23 +711,25 @@ public class AutoDbUtils {
 				first = false;
 			}
 			return out + "]";
-		}
-		
-		String out = "\"" + o.getClass().getSimpleName() + "\": {\n " + getnTabs(tabs) + " \"ID\":\"" + RegisterManager.getInstance().getIdFromObject(o) + "\"";
-		Field[] fields = o.getClass().getDeclaredFields();
-		for (Field field : fields) {
-			try {
-				field.setAccessible(true);
-				Object fieldContent = field.get(o);
-				if(fieldContent != null) {
-					out +=",\n" + getnTabs(tabs) +  " \"" + field.getName() + "\": " + stringifyObject(fieldContent, tabs);
-				} else {
-					out +=",\n" + getnTabs(tabs) +  " \"" + field.getName() + "\": NULL" ;
+		} else if(isTypeSubClass(o.getClass())) {
+			String out = "\"" + o.getClass().getSimpleName() + "\": {\n " + getnTabs(tabs) + " \"ID\":\"" + RegisterManager.getInstance().getIdFromObject(o) + "\"";
+			Field[] fields = o.getClass().getDeclaredFields();
+			for (Field field : fields) {
+				try {
+					field.setAccessible(true);
+					Object fieldContent = field.get(o);
+					if(fieldContent != null) {
+						out +=",\n" + getnTabs(tabs) +  " \"" + field.getName() + "\": " + stringifyObject(fieldContent, tabs);
+					} else {
+						out +=",\n" + getnTabs(tabs) +  " \"" + field.getName() + "\": NULL" ;
+					}
+				} catch (IllegalArgumentException | IllegalAccessException e) {
+					e.printStackTrace();
 				}
-			} catch (IllegalArgumentException | IllegalAccessException e) {
-				e.printStackTrace();
 			}
+			return out + "\n" + getnTabs(tabs - 1) + "}";
+		} else {
+			return o.toString();
 		}
-		return out + "\n" + getnTabs(tabs - 1) + "}";
 	}
 }

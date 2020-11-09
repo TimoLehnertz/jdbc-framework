@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import com.mysql.cj.exceptions.WrongArgumentException;
+
 /**
  * Class fo
  * @author Timo Lehnertz
@@ -40,11 +42,20 @@ public class SqlParams {
 	
 	public boolean add(Object ... o) {
 		for (Object object : o) {
+			if(object == null) {
+				argTypes += SupportedTypes.getCharRepresentationOftype(String.class);
+				data.add(object);
+				continue;
+			}
 			if(!SupportedTypes.isTypeSupported(object.getClass())) {
 				continue;
 			}
-			argTypes += SupportedTypes.getCharRepresentationOftype(object.getClass());
-			data.add(object);
+			try {
+				argTypes += SupportedTypes.getCharRepresentationOftype(object.getClass());
+				data.add(object);
+			} catch(WrongArgumentException e) {
+				System.err.println(e.getMessage());
+			}
 		}
 		return true;
 	}

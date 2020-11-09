@@ -13,7 +13,6 @@ public class Book extends Entity{
 	Student currentOwner;
 	
 	List<List<Character>> pages  = new ArrayList<>();
-//	List<String> pages  = new ArrayList<>();
 	
 	public Book() {
 		super();

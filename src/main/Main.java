@@ -18,20 +18,7 @@ public class Main {
 		
 		s1.save();
 		s2.save();
-//		Alternativ
-//		AutoDb.save(s1);
 		
 		System.out.println(AutoDb.getAll(Student.class));
-
-		s1.delete();
-		s2.delete();
-//		Alternativ
-//		AutoDb.delete(s1);
-		
-		System.out.println();
-		
-		System.out.println(AutoDb.getAll(Student.class));
-//		alternativ
-//		System.out.println(s1.getAll());
 	}
 }

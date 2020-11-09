@@ -92,24 +92,32 @@ public class AutoDb {
 	 * Drops the database forever! (A long time!)
 	 * @return
 	 */
-	public static boolean dropDatabase() {
-		System.out.println("Do you really want to delete \"" + getDbName() + "\"? y/n");
-		int i = 0;
-		try {
-			i = System.in.read();
-			System.out.println(i);
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		String c = (i == 121 ? "y" : "n");
-		if(c.equals("y") || c.equals("Y")) {
+	public static boolean dropDatabase(boolean force) {
+		if(force) {
 			return db.execute("DROP DATABASE IF EXISTS `" + db.getDbName() +"`;");
 		} else {
-			System.out.println("abort");
-			return false;
+			System.out.println("Do you really want to delete \"" + getDbName() + "\"? y/n");
+			int i = 0;
+			try {
+				i = System.in.read();
+				System.out.println(i);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			
+			String c = (i == 121 ? "y" : "n");
+			if(c.equals("y") || c.equals("Y")) {
+				return db.execute("DROP DATABASE IF EXISTS `" + db.getDbName() +"`;");
+			} else {
+				System.out.println("abort");
+				return false;
+			}
 		}
+	}
+	
+	public static boolean dropDatabase() {
+		return dropDatabase(false);
 	}
 	
 	/**
